@@ -1,4 +1,49 @@
 use raylib::prelude::*;
+use std::fs::File;
+use std::io::Write;
+
+pub fn export_bmp(img: &Image, filename: &str) {
+    let width = img.width() as u32;
+    let height = img.height() as u32;
+    let row_size = ((width * 3 + 3) / 4) * 4;
+    let pixel_data_size = row_size * height;
+    let file_size = 14 + 40 + pixel_data_size;
+
+    let mut buffer = Vec::with_capacity(file_size as usize);
+
+    buffer.extend_from_slice(b"BM");
+    buffer.extend_from_slice(&file_size.to_le_bytes());
+    buffer.extend_from_slice(&0u32.to_le_bytes());
+    buffer.extend_from_slice(&(14u32 + 40u32).to_le_bytes());
+
+    buffer.extend_from_slice(&40u32.to_le_bytes());
+    buffer.extend_from_slice(&(width as i32).to_le_bytes());
+    buffer.extend_from_slice(&(height as i32).to_le_bytes());
+    buffer.extend_from_slice(&1u16.to_le_bytes());
+    buffer.extend_from_slice(&24u16.to_le_bytes());
+    buffer.extend_from_slice(&0u32.to_le_bytes());
+    buffer.extend_from_slice(&pixel_data_size.to_le_bytes());
+    buffer.extend_from_slice(&2835i32.to_le_bytes());
+    buffer.extend_from_slice(&2835i32.to_le_bytes());
+    buffer.extend_from_slice(&0u32.to_le_bytes());
+    buffer.extend_from_slice(&0u32.to_le_bytes());
+
+    let rgba = img.get_image_data_u8(true);
+    let padding = (row_size - width * 3) as usize;
+
+    for y in 0..height as usize {
+        for x in 0..width as usize {
+            let idx = (y * width as usize + x) * 4;
+            buffer.push(rgba[idx + 2]);
+            buffer.push(rgba[idx + 1]);
+            buffer.push(rgba[idx]);
+        }
+        buffer.extend(std::iter::repeat(0u8).take(padding));
+    }
+
+    let mut file = File::create(filename).expect("could not create bmp file");
+    file.write_all(&buffer).expect("could not write bmp file");
+}
 
 pub fn point(img: &mut Image, x: i32, y: i32, color: Color) {
     if x >= 0 && x < img.width() && y >= 0 && y < img.height() {
